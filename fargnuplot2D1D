@@ -1,0 +1,383 @@
+#!/usr/bin/perl -s
+# =====================================================
+# FARGNUPLOT 
+# =====================================================
+# Plotting Tool for FARGO (Frederic Masset). Fargo is a
+# simple and fast 2D polar hydrodynamic code dedicated
+# to planet-disk tidal interactions. This perl script 
+# generates 2D plots, to quickly check the results of a 
+# run.
+#
+# Run './fargoplot -h' to see the syntax and examples.
+#
+# Note that this script needs a gnuplot version >= 4.2
+#   
+# -----------------------------------------------------
+# Hanno Rein, Cambridge University, 2008-2009
+# http://damtp.cam.ac.uk/user/hr260/
+# Thanks to Aurelien Crida and Tobias Mueller.
+# -----------------------------------------------------
+
+#use constant GNUPLOTCMD => "/home/hr260/localinstalls/bin/gnuplot";
+use constant GNUPLOTCMD => "gnuplot";
+use constant PI2 => "6.28318530717959";
+
+sub printusage
+{
+	print <<EUS;
+FarGnuPlot 0.31 of 2 September 2008. Maintained by Hanno Rein.
+Send comments to hr260\@damtp.cam.ac.uk
+
+Usage: fargnuplot [options] [in/fargo.par | directory]
+
+  -h          print this message
+  -d          do not delete temporary files, usefull 
+              for further processing
+  -p          persistent X11 window 		      
+  -x          exit gnuplot after plotting (implies -p)
+  -num=NUM    plot file with number NUM in given
+              directory instead of newest file
+  -file=FILE  plot FILE, need to specify nr and ns as well
+  -nr         number of radial grid cells
+  -ns         number of azimuthal grid cells
+  -nr1D       number of radial grid cells in the 1D grid
+
+  -g          plot gas density (default)  gasdens*.dat
+  -vr         plot radial velocity        gasvrad*.dat
+  -vt         plot azimuthal velocity     gasvtheta*.dat
+  -t          plot gas temperature        gasTemperature*.dat
+
+  -l          use logarithmic scale
+  -c          circular plot (default: rectangular plot)
+  -curve      plot average values as a function of radius
+  -all        plot also the 1D grid (for FARGO-2D1D)
+
+Examples:
+  fargnuplot -nr=384 -ns=384 out5       => plot the lates
+                     density file in the directory out5
+  fargnuplot in/stockholm_MJ_visc.par   => plot the latest
+                     density file in the output directoty
+                     specified in the .par file
+  fargnuplot -nr=128 -ns=384 -file=out5/gasdens125.dat
+                     => plot the specified file
+EUS
+	if ($_[0]){
+		print "\n*** Error: ";
+		print $_[0]."\n";
+	}
+	exit(-1);
+}
+
+## search for file in commandline arguments
+print @ARGV;
+$argfile = -1;
+for($argvn=0;$argvn<=$#ARGV;$argvn++){
+	print $argvn."  .  ".$ARGV[$argvn].  "\n";
+	if ((-e $ARGV[$argvn])){ 
+		$argfile = $argvn;
+	}
+}
+	
+
+### code
+if ($vr){
+	$tpprefix = "gasvrad";
+	$zlabel = "v_rad"
+}elsif($vt){
+	$tpprefix = "gasvtheta";
+	$zlabel = "v_theta"
+}elsif($t){
+	$tpprefix = "gasTemperature";
+	$zlabel = "Temperature"
+}else{
+	$tpprefix = "gasdens";  # this is the default
+	$zlabel = "Gas Density"
+}
+
+
+$dy = 1;
+$rmin =0.;
+$dx = 1;
+
+
+if ($file){
+	## user specified file
+	if (!(-e $file)){
+		&printusage("File ".$file." does not exist.");
+	}
+	if (-d $file){
+		&printusage("Specified file ".$file." is a directory.");
+	}
+	$tp = $file;
+	if ($nr==0 || $ns ==0){
+		&printusage("Number of gridcells not specified.");
+	}
+	$dx = PI2 / ($ns-1);
+}else{
+	## automatically find newest file
+	if (!(-e $ARGV[$argfile])) {
+		 &printusage("Directory or file '".$ARGV[$argfile]."' does not exist.");
+	}
+	if (!(-d $ARGV[$argfile])) {
+	## parse fargo .par file 
+		open(FARGOPAR, $ARGV[$argfile]);
+			while (<FARGOPAR>) {
+				chomp;                  # no newline
+				s/#.*//;                # no comments
+				s/^\s+//;               # no leading white
+				s/\s+$//;               # no trailing white
+				next unless length;     # anything left?
+				my ($var, $value) = split(/[\ \t]/, $_, 2);
+				if ( $var =~ m/\s*nrad\s*/i){
+					$_ = $value;
+					chomp;
+					m/(\S+)[\ \t]*/;
+					$nr=$1;
+				}
+				if ( $var =~ m/\s*nsec\s*/i){
+					$_ = $value;
+					chomp;
+					m/(\S+)[\ \t]*/;
+					$ns=$1;
+				}
+				if ( $var =~ m/\s*outputdir\s*/i){
+					$_ = $value;
+					chomp;
+					m/(\S+)[\ \t]*/;
+					$ARGV[$argfile]=$1;
+					$dir=$1;
+				}
+				if ( $var =~ m/\s*rmin\s*/i){
+					$_ = $value;
+					chomp;
+					m/(\S+)[\ \t]*/;
+					$rmin=$1;
+				}
+				if ( $var =~ m/\s*rmax\s*/i){
+					$_ = $value;
+					chomp;
+					m/(\S+)[\ \t]*/;
+					$rmax=$1;
+				}
+
+			} 
+		close(FARGOPAR);
+		if ((!$dir)||(!$nr)||(!$ns)){
+			&printusage("File ".$ARGV[$argfile]." is not a valid FARGO .par file.");
+		}
+		if ($rmin!=$rmax) {
+			$dy = $rmax-$rmin;
+			$dy /= $nr;
+		}
+		$dx = PI2 /($ns-1);
+		if($all){
+		    print "Using directory ".$ARGV[$argfile]. ", nr=".$nr. ", ns=".$ns. ", nr1D=".$nr1D."\n";
+		}else{
+		    print "Using directory ".$ARGV[$argfile]. ", nr=".$nr. ", ns=".$ns."\n";
+	        }
+	}
+	if($num =~/^\d+$/){
+		## user specified file number
+		if (!(-e $ARGV[$argfile]."/".$tpprefix.$num.".dat")){
+			&printusage("File ".$ARGV[$argfile]."/".$tpprefix.$num.".dat does not exist.");
+		}
+		$tp = $ARGV[$argfile]."/".$tpprefix.$num.".dat";
+		if($all){
+		    if (!(-e $ARGV[$argfile]."/".$tpprefix."1D".$num.".dat")){
+			&printusage("File ".$ARGV[$argfile]."/".$tpprefix."1D".$num.".dat does not exist.");
+		    }
+		    $tp1D = $ARGV[$argfile]."/".$tpprefix."1D".$num.".dat";
+		}
+	}else{
+		if (-d $ARGV[$argfile]) {
+		## find newest file in directory	
+			@sortedfiles =`ls -lt $ARGV[$argfile]/$tpprefix*.dat | awk '{print \$9;}'| grep -v 1D | grep -v ascii`;
+			$tp = $sortedfiles[0];
+			$tp =~ s/\n//;
+			print $tp;
+			if (!(-e $tp)) {
+				&printusage("Directory does not contain FARGO files.");
+			}
+			if($all){
+			    @sortedfiles =`ls -lt $ARGV[$argfile]/$tpprefix*.dat | awk '{print \$9;}'| grep 1D`;
+			    $tp1D = $sortedfiles[0];
+			    $tp1D =~ s/\n//;
+			    print " ".$tp1D;
+			    if (!(-e $tp1D)) {
+				&printusage("Directory does not contain FARGO 1D files.");
+			    }
+			}
+		}
+	}
+	# Search for used_rad.dat
+	if ( -e $ARGV[$argfile]."/used_rad.dat" ){
+		open(USED_RAD, $ARGV[$argfile]."/used_rad.dat");
+		@radii = <USED_RAD>;
+		close(USED_RAD);
+	}else{
+		print "Couldn't find any information about spacing (used_rad.dat). Using linear spacing\n";
+	}
+	if($all){
+	    if ( -e $ARGV[$argfile]."/used_rad1D.dat" ){
+		open(USED_RAD, $ARGV[$argfile]."/used_rad1D.dat");
+		@radii1D = <USED_RAD>;
+		close(USED_RAD);
+	    }else{
+		print "Couldn't find any information about spacing (used_rad1D.dat). Using linear spacing\n";
+	    }
+	}
+
+}
+
+
+
+print "Plotting ".$tp."\n";
+
+if ($l){
+	$plot3 = "(log10(\$3))";
+	$zlabel = $zlabel ." (log10)";
+}else{
+	$plot3 = "3";
+}
+if ($c){
+	$plot1 = "(\$2*sin(\$1))";
+	$plot2 = "(\$2*cos(\$1))";
+	$xlabel = "radius";
+}else{
+	$plot1 = "1";
+	$plot2 = "2";
+	$xlabel = "theta";
+}
+
+$ns++;
+
+open (GNUPLOTW, ">.fargnuplot.plt");
+print GNUPLOTW <<gnuplot_commands;
+    set tics out
+    set title "FARGO file: $tp"
+gnuplot_commands
+if ($curve){
+	$plot3 =~ s/3/2/g; 
+ 	print GNUPLOTW <<gnuplot_commands_plot;
+    set xlabel "radius"
+    set autoscale xfix
+    set ylabel "$zlabel"
+    set style data lines
+    plot ".fargnuplot.dat" binary record=${nr} format="%double" u 1:$plot3 notitle 
+gnuplot_commands_plot
+}else{
+    if($all){
+ 	print GNUPLOTW <<gnuplot_commands_plot;
+    set pm3d map
+    set autoscale fix
+    set xlabel "$xlabel"
+    set ylabel "radius"
+    set cblabel "$zlabel"
+    splot ".fargnuplot1D.dat" binary record=${ns}x${nr1D} format="%double" u $plot1:$plot2:$plot3 notitle, ".fargnuplot.dat" binary record=${ns}x${nr} format="%double" u $plot1:$plot2:$plot3 notitle
+gnuplot_commands_plot
+    }else{
+ 	print GNUPLOTW <<gnuplot_commands_plot;
+    set pm3d map
+    set autoscale fix
+    set xlabel "$xlabel"
+    set ylabel "radius"
+    set cblabel "$zlabel"
+    splot ".fargnuplot.dat" binary record=${ns}x${nr} format="%double" u $plot1:$plot2:$plot3 notitle
+gnuplot_commands_plot
+    }
+
+}
+$ns--;
+close(GNUPLOTW);
+open (GNUPLOTW, ">.fargnuplot.dat"); binmode(GNUPLOTW);
+open(INP,$tp); binmode(INP);
+$i=0;
+$j=$rmin;
+$counti=0;
+$countj=0;
+$sum=0;
+while (read(INP, $buff, 8 )) {
+	if ($i==0){ $printagain=$buff; } # closing the gap by printing first row twice
+	if (@radii){
+		$rad=$radii[$countj];
+#		$rad=($radii[$countj]+$radii[$countj+1])/2.;
+	}else{
+		$rad=$j;
+	}
+	if (!$curve){
+		$coord=pack("dd",$i,$rad);
+		print GNUPLOTW $coord;
+		print GNUPLOTW $buff;
+	}else{
+		$sum += unpack("d",$buff)/$ns;
+	}
+	$counti++;
+	$i=$dx*$counti;
+	if ($i>=$ns*$dx){
+		if (!$curve){
+			$coord=pack("dd",$i,$rad); # convert to binary format
+			print GNUPLOTW $coord;
+			print GNUPLOTW $printagain;
+		}else{
+			print GNUPLOTW pack("dd", $rad, $sum);
+			$sum=0;
+		}
+		$j+=$dy;
+		$countj++;
+		$i=0;
+		$counti=0;
+	}
+}
+close GNUPLOTW;
+if($all){
+    open (GNUPLOTW, ">.fargnuplot1D.dat"); binmode(GNUPLOTW);
+    open(INP,$tp1D); binmode(INP);
+    $i=0;
+    $j=$rmin;
+    $countj=0;
+    $counti=0;
+    while (read(INP, $buff, 8 ) && ($countj<=$nr1D)) {
+#    while ($countj<$nr1D) {
+	if (@radii1D){
+		$rad=$radii1D[$countj];
+#		$rad=($radii1D[$countj]+$radii1D[$countj+1])/2.;
+	}else{
+		$rad=$j;
+	}
+	if (!$curve){
+	    while($counti<($ns+1)){
+		$i=$dx*$counti;
+		$coord=pack("dd",$i,$rad);
+		print GNUPLOTW $coord;
+		print GNUPLOTW $buff;
+		$counti++;
+	    }
+	}else{
+		print GNUPLOTW pack("dd", $rad, $buff);
+	}
+	$j+=$dy;
+	$countj++;
+	$i=0;
+	$counti=0;
+    }
+    close GNUPLOTW;
+}
+if ($p||$x){
+	$gnuplotoptions = " -persist ";
+}else{
+	$gnuplotoptions = " ";
+}
+if ($x){
+	$gnuplotoptions .= " .fargnuplot.plt";
+}else{
+	$gnuplotoptions .= " .fargnuplot.plt -";
+}
+print "All data files written. Starting gnuplot. Enter 'q' to quit.\n";
+system(GNUPLOTCMD.$gnuplotoptions)==0 or die ("Calling gnuplot failed.");
+
+unless ($d){
+	print ("Deleting temporary data files.\n");
+	unlink (".fargnuplot.plt");
+	unlink (".fargnuplot.dat");
+}
+
