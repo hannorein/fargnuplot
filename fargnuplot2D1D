@@ -49,6 +49,7 @@ Usage: fargnuplot [options] [in/fargo.par | directory]
 
   -l          use logarithmic scale
   -c          circular plot (default: rectangular plot)
+  -clean      plots only the data, no borders, no axis
   -curve      plot average values as a function of radius
   -all        plot also the 1D grid (for FARGO-2D1D)
 
@@ -266,22 +267,38 @@ if ($curve){
     plot ".fargnuplot.dat" binary record=${nr} format="%double" u 1:$plot3 notitle 
 gnuplot_commands_plot
 }else{
+ 	print GNUPLOTW <<gnuplot_commands_plot;
+    	set pm3d map
+    	set autoscale fix
+    	set xlabel "$xlabel"
+    	set ylabel "radius"
+    	set cblabel "$zlabel"
+gnuplot_commands_plot
+	if($clean){
+		print GNUPLOTW <<gnuplot_commands;	
+		unset cbtics
+	    	unset ytics
+	    	unset xtics
+	    	unset tics
+	    	unset title
+	    	unset colorbox
+		unset xlabel
+		unset ylabel
+		set size square
+	    	set border 0
+		set lmargin 0
+		set rmargin 0
+		set tmargin 0
+		set bmargin 0
+		set size ratio 1
+gnuplot_commands
+	}
     if($all){
  	print GNUPLOTW <<gnuplot_commands_plot;
-    set pm3d map
-    set autoscale fix
-    set xlabel "$xlabel"
-    set ylabel "radius"
-    set cblabel "$zlabel"
     splot ".fargnuplot1D.dat" binary record=${ns}x${nr1D} format="%double" u $plot1:$plot2:$plot3 notitle, ".fargnuplot.dat" binary record=${ns}x${nr} format="%double" u $plot1:$plot2:$plot3 notitle
 gnuplot_commands_plot
     }else{
  	print GNUPLOTW <<gnuplot_commands_plot;
-    set pm3d map
-    set autoscale fix
-    set xlabel "$xlabel"
-    set ylabel "radius"
-    set cblabel "$zlabel"
     splot ".fargnuplot.dat" binary record=${ns}x${nr} format="%double" u $plot1:$plot2:$plot3 notitle
 gnuplot_commands_plot
     }
