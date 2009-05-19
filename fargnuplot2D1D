@@ -18,9 +18,11 @@
 # Thanks to Aurelien Crida and Tobias Mueller.
 # -----------------------------------------------------
 
-#use constant GNUPLOTCMD => "/home/hr260/localinstalls/bin/gnuplot";
 use constant GNUPLOTCMD => "gnuplot";
 use constant PI2 => "6.28318530717959";
+
+# need for random hash
+use Digest::MD5;
 
 sub printusage
 {
@@ -52,6 +54,9 @@ Usage: fargnuplot [options] [in/fargo.par | directory]
   -clean      plots only the data, no borders, no axis
   -curve      plot average values as a function of radius
   -all        plot also the 1D grid (for FARGO-2D1D)
+  -s          square plot
+  -png        output png file and exit gnuplot
+  -eps        output eps file and exit gnuplot
 
 Examples:
   fargnuplot -nr=384 -ns=384 out5       => plot the lates
@@ -78,9 +83,14 @@ for($argvn=0;$argvn<=$#ARGV;$argvn++){
 		$argfile = $argvn;
 	}
 }
-	
 
 ### code
+
+# generate random hash
+my $digest = new Digest::MD5;
+$digest->add(rand());
+$random_hash = $digest->hexdigest();
+
 if ($vr){
 	$tpprefix = "gasvrad";
 	$zlabel = "v_rad"
@@ -95,11 +105,9 @@ if ($vr){
 	$zlabel = "Gas Density"
 }
 
-
 $dy = 1;
 $rmin =0.;
 $dx = 1;
-
 
 if ($file){
 	## user specified file
@@ -230,8 +238,6 @@ if ($file){
 
 }
 
-
-
 print "Plotting ".$tp."\n";
 
 if ($l){
@@ -252,7 +258,32 @@ if ($c){
 
 $ns++;
 
-open (GNUPLOTW, ">.fargnuplot.plt");
+open (GNUPLOTW, ">.fargnuplot.$random_hash.plt");
+
+# enable EPS/PNG output
+if ($eps) {
+	print("EPS mode. Writing to ".$ARGV[$argfile]."/".$tpprefix.$num.".eps\n");
+	print GNUPLOTW <<gnuplot_terminal;
+    set output "$ARGV[$argfile]/$tpprefix$num.eps"
+    set terminal postscript color enhanced 
+gnuplot_terminal
+	$x=1;
+} elsif ($png) {
+	print("PNG mode. Writing to ".$ARGV[$argfile]."/".$tpprefix.$num.".png\n");
+	print GNUPLOTW <<gnuplot_terminal;
+    set output "$ARGV[$argfile]/$tpprefix$num.png"
+    set terminal png enhanced crop truecolor size 1280,1024
+gnuplot_terminal
+	$x=1;
+}
+
+# square plot
+if ($s) {
+	print GNUPLOTW <<gnuplot_square;
+    set size square
+gnuplot_square
+}
+
 print GNUPLOTW <<gnuplot_commands;
     set tics out
     set title "FARGO file: $tp"
@@ -264,7 +295,7 @@ if ($curve){
     set autoscale xfix
     set ylabel "$zlabel"
     set style data lines
-    plot ".fargnuplot.dat" binary record=${nr} format="%double" u 1:$plot3 notitle 
+    plot ".fargnuplot.$random_hash.dat" binary record=${nr} format="%double" u 1:$plot3 notitle 
 gnuplot_commands_plot
 }else{
  	print GNUPLOTW <<gnuplot_commands_plot;
@@ -295,18 +326,18 @@ gnuplot_commands
 	}
     if($all){
  	print GNUPLOTW <<gnuplot_commands_plot;
-    splot ".fargnuplot1D.dat" binary record=${ns}x${nr1D} format="%double" u $plot1:$plot2:$plot3 notitle, ".fargnuplot.dat" binary record=${ns}x${nr} format="%double" u $plot1:$plot2:$plot3 notitle
+    splot ".fargnuplot1D.$random_hash.dat" binary record=${ns}x${nr1D} format="%double" u $plot1:$plot2:$plot3 notitle, ".fargnuplot.$random_hash.dat" binary record=${ns}x${nr} format="%double" u $plot1:$plot2:$plot3 notitle
 gnuplot_commands_plot
     }else{
  	print GNUPLOTW <<gnuplot_commands_plot;
-    splot ".fargnuplot.dat" binary record=${ns}x${nr} format="%double" u $plot1:$plot2:$plot3 notitle
+    splot ".fargnuplot.$random_hash.dat" binary record=${ns}x${nr} format="%double" u $plot1:$plot2:$plot3 notitle
 gnuplot_commands_plot
     }
 
 }
 $ns--;
 close(GNUPLOTW);
-open (GNUPLOTW, ">.fargnuplot.dat"); binmode(GNUPLOTW);
+open (GNUPLOTW, ">.fargnuplot.$random_hash.dat"); binmode(GNUPLOTW);
 open(INP,$tp); binmode(INP);
 $i=0;
 $j=$rmin;
@@ -347,7 +378,7 @@ while (read(INP, $buff, 8 )) {
 }
 close GNUPLOTW;
 if($all){
-    open (GNUPLOTW, ">.fargnuplot1D.dat"); binmode(GNUPLOTW);
+    open (GNUPLOTW, ">.fargnuplot1D.$random_hash.dat"); binmode(GNUPLOTW);
     open(INP,$tp1D); binmode(INP);
     $i=0;
     $j=$rmin;
@@ -385,16 +416,17 @@ if ($p||$x){
 	$gnuplotoptions = " ";
 }
 if ($x){
-	$gnuplotoptions .= " .fargnuplot.plt";
+	$gnuplotoptions .= " .fargnuplot.$random_hash.plt";
 }else{
-	$gnuplotoptions .= " .fargnuplot.plt -";
+	$gnuplotoptions .= " .fargnuplot.$random_hash.plt -";
 }
 print "All data files written. Starting gnuplot. Enter 'q' to quit.\n";
 system(GNUPLOTCMD.$gnuplotoptions)==0 or die ("Calling gnuplot failed.");
 
 unless ($d){
 	print ("Deleting temporary data files.\n");
-	unlink (".fargnuplot.plt");
-	unlink (".fargnuplot.dat");
+	unlink (".fargnuplot.$random_hash.plt");
+	unlink (".fargnuplot.$random_hash.dat");
+	unlink (".fargnuplot1D.$random_hash.dat");
 }
 
