@@ -25,6 +25,7 @@ use constant PI2 => "6.28318530717959";
 
 # needed for random hash
 use Digest::MD5;
+use File::Basename;
 
 ### SUB ROUTINES ###############################################################
 
@@ -318,18 +319,30 @@ open(GNUPLOTW, ">$tempdir.fargnuplot.$random_hash.plt");
 
 # enable EPS/PNG output
 if ($eps) {
-	print("EPS mode. Writing to ".$ARGV[$argfile]."/".$tpprefix.$num.".eps\n");
+	if ($file) {
+		my ($filename, $directories, $suffix) = fileparse($file, qr/\.[^.]*/);
+		$outputfile = $directories.$filename;
+	} else {
+		$outputfile = $ARGV[$argfile]."/".$tpprefix.$num;
+	}
+	print("EPS mode. Writing to ".$outputfile.".eps\n");
 	# set terminal
 	print GNUPLOTW "\tset terminal postscript color enhanced\n";
 	# set output filename
-	print GNUPLOTW "\tset output \"$ARGV[$argfile]/$tpprefix$num.eps\"\n";
+	print GNUPLOTW "\tset output \"$outputfile.eps\"\n";
 	$x=1;
 } elsif ($png) {
-	print("PNG mode. Writing to ".$ARGV[$argfile]."/".$tpprefix.$num.".png\n");
+	if ($file) {
+		my ($filename, $directories, $suffix) = fileparse($file, qr/\.[^.]*/);
+		$outputfile = $directories.$filename;
+	} else {
+		$outputfile = $ARGV[$argfile]."/".$tpprefix.$num;
+	}
+	print("PNG mode. Writing to ".$outputfile.".png\n");
 	# set terminal
 	print GNUPLOTW "\tset terminal png enhanced crop truecolor notransparent size 1280,1024 xffffff x000000 x404040 xff0000 xffa500 x66cdaa xcdb5cd xadd8e6 x0000ff xdda0dd x9500d3\n";
 	# set output filename
-	print GNUPLOTW "\tset output \"$ARGV[$argfile]/$tpprefix$num.png\"\n";
+	print GNUPLOTW "\tset output \"$outputfile.png\"\n";
 	$x=1;
 }
 
