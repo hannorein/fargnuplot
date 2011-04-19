@@ -33,7 +33,7 @@ use File::Basename;
 sub printusage
 {
 	print <<EUS;
-FarGnuPlot 0.51 of 19 May 2009. Maintained by Hanno Rein.
+FarGnuPlot 0.52 of 19 April 2011. Maintained by Hanno Rein.
 Send comments to hr260\@damtp.cam.ac.uk
 
 Usage: fargnuplot [options] [in/fargo.par | directory]
@@ -63,6 +63,8 @@ Usage: fargnuplot [options] [in/fargo.par | directory]
   -l          use logarithmic scale
   -lcb        use logarithmic scale for cb axis
   -r=RANGE    range for cb axis (e.g. 0:1)
+  -palette=PALETTE set gnuplot palette
+              (e.g. "( 0 \"blue\", 1 \"red\" )" )
   -c          circular plot (default: rectangular plot)
   -clean      plots only the data, no borders, no axis
   -curve      plot average values as a function of radius
@@ -378,6 +380,11 @@ if ($curve) {
 	# range for cb axis
 	if ($r) {
 		print GNUPLOTW "\tset cbrange [$r]\n"
+	}
+
+	# palette for cb axis
+	if ($palette) {
+		print GNUPLOTW "\tset palette defined $palette\n";
 	}
 
 	if ($clean) {
