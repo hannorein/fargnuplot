@@ -66,6 +66,7 @@ Usage: fargnuplot [options] [in/fargo.par | directory]
   -palette=PALETTE set gnuplot palette
               (e.g. "( 0 \"blue\", 1 \"red\" )" )
   -c          circular plot (default: rectangular plot)
+  -axis       change axis in circular plot to have positive x axis in "right" direction
   -clean      plots only the data, no borders, no axis
   -curve      plot average values as a function of radius
   -all        plot also the 1D grid (for FARGO-2D1D)
@@ -306,8 +307,13 @@ if ($l){
 # circular plot?
 if ($c) {
 	# circular plot
-	$plot1 = "(\$2*sin(\$1))";
-	$plot2 = "(\$2*cos(\$1))";
+	if ($axis) {
+		$plot1 = "(\$2*sin(\$1))";
+		$plot2 = "(\$2*cos(\$1))";
+	} else {
+		$plot1 = "(\$2*cos(\$1))";
+		$plot2 = "(\$2*sin(\$1))";
+	}
 	$xlabel = "radius";
 } else {
 	# rectangular plot
