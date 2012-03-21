@@ -62,6 +62,7 @@ Usage: fargnuplot [options] [in/fargo.par | directory]
 
   -l          use logarithmic scale
   -lcb        use logarithmic scale for cb axis
+  -scale=FACTOR	scale by factor
   -r=RANGE    range for cb axis (e.g. 0:1)
   -palette=PALETTE set gnuplot palette
               (e.g. "( 0 \"blue\", 1 \"red\" )" )
@@ -348,7 +349,7 @@ if ($eps) {
 	}
 	print("PNG mode. Writing to ".$outputfile.".png\n");
 	# set terminal
-	print GNUPLOTW "\tset terminal png enhanced crop truecolor notransparent size 1280,1024 xffffff x000000 x404040 xff0000 xffa500 x66cdaa xcdb5cd xadd8e6 x0000ff xdda0dd x9500d3\n";
+	print GNUPLOTW "\tset terminal png enhanced crop truecolor notransparent size 1280,1024\n";
 	# set output filename
 	print GNUPLOTW "\tset output \"$outputfile.png\"\n";
 	$x=1;
@@ -361,6 +362,10 @@ if ($s) {
 
 print GNUPLOTW "\tset tics out\n";
 print GNUPLOTW "\tset title \"FARGO file: $tp\"\n";
+
+if (!$scale) {
+	$scale = 1.0;
+}
 
 if ($curve) {
 	# average values plot
@@ -417,9 +422,9 @@ if ($curve) {
 		print GNUPLOTW "\tsplot \"$tempdir.fargnuplot1D.$random_hash.dat\" binary record=${ns}x${nr1D} format=\"%double\" u $plot1:$plot2:$plot3 notitle, \".fargnuplot.$random_hash.dat\" binary record=${ns}x${nr} format=\"%double\" u $plot1:$plot2:$plot3 notitle\n";
 	} else {
 		# without 1D
-		print "\tsplot \"$tempdir.fargnuplot.$random_hash.dat\" binary record=${ns}x${nr} format=\"%double\" u $plot1:$plot2:$plot3 notitle\n";
+		print "\tsplot \"$tempdir.fargnuplot.$random_hash.dat\" binary record=${ns}x${nr} format=\"%double\" u $plot1:$plot2:(\$$plot3*$scale) notitle\n";
 
-		print GNUPLOTW "\tsplot \"$tempdir.fargnuplot.$random_hash.dat\" binary record=${ns}x${nr} format=\"%double\" u $plot1:$plot2:$plot3 notitle\n";
+		print GNUPLOTW "\tsplot \"$tempdir.fargnuplot.$random_hash.dat\" binary record=${ns}x${nr} format=\"%double\" u $plot1:$plot2:(\$$plot3*$scale) notitle\n";
 	}
 }
 $ns--;
