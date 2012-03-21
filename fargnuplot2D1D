@@ -33,7 +33,7 @@ use File::Basename;
 sub printusage
 {
 	print <<EUS;
-FarGnuPlot 0.52 of 19 April 2011. Maintained by Hanno Rein.
+FarGnuPlot 0.53 of 21 March 2012. Maintained by Hanno Rein.
 Send comments to hr260\@damtp.cam.ac.uk
 
 Usage: fargnuplot [options] [in/fargo.par | directory]
@@ -64,6 +64,8 @@ Usage: fargnuplot [options] [in/fargo.par | directory]
   -lcb        use logarithmic scale for cb axis
   -scale=FACTOR	scale by factor
   -r=RANGE    range for cb axis (e.g. 0:1)
+  -xr=RANGE   range for x axis (e.g. 0:1)
+  -yr=RANGE   range for y axis (e.g. 0:1)
   -palette=PALETTE set gnuplot palette
               (e.g. "( 0 \"blue\", 1 \"red\" )" )
   -c          circular plot (default: rectangular plot)
@@ -396,6 +398,16 @@ if ($curve) {
 	# palette for cb axis
 	if ($palette) {
 		print GNUPLOTW "\tset palette defined $palette\n";
+	}
+
+	# range for x axis
+	if ($xr) {
+		print GNUPLOTW "\tset xrange [$xr]\n"
+	}
+
+	# range for y axis
+	if (yr) {
+		print GNUPLOTW "\tset yrange [$yr]\n"
 	}
 
 	if ($clean) {
