@@ -76,6 +76,10 @@ Usage: fargnuplot [options] [in/fargo.par | directory]
   -s          square plot
   -png        output png file and exit gnuplot
   -eps        output eps file and exit gnuplot
+  -title=TITLE title
+  -xlabel=XLABEL x-axis label
+  -ylabel=YLABEL y-axis label
+  -cblabel=CBLABEL cb-axis label
 
 Examples:
   fargnuplot -nr=384 -ns=384 out5       => plot the lates
@@ -156,6 +160,10 @@ if ($vr){
 	# this is the default
 	$tpprefix = "gasdens";
 	$zlabel = "Gas Density"
+}
+
+if ($cblabel) {
+	$zlabel = $cblabel;
 }
 
 $dy = 1;
@@ -317,12 +325,22 @@ if ($c) {
 		$plot1 = "(\$2*cos(\$1))";
 		$plot2 = "(\$2*sin(\$1))";
 	}
-	$xlabel = "radius";
+	if (!($xlabel)) {
+		$xlabel = "radius";
+	}
 } else {
 	# rectangular plot
 	$plot1 = "1";
 	$plot2 = "2";
-	$xlabel = "theta";
+	if (!($xlabel)) {
+		$xlabel = "theta";
+	}
+	$xtics='("0" 0, "{/Symbol p}/2" pi/2.0, "{/Symbol p}" pi, "3{/Symbol p}/2" 3.0/2.0*pi, "2{/Symbol p}" 2*pi)';
+}
+
+# ylabel
+if (!($ylabel)) {
+	$ylabel = "radius"
 }
 
 $ns++;
@@ -351,7 +369,7 @@ if ($eps) {
 	}
 	print("PNG mode. Writing to ".$outputfile.".png\n");
 	# set terminal
-	print GNUPLOTW "\tset terminal png enhanced crop truecolor notransparent size 1280,1024\n";
+	print GNUPLOTW "\tset terminal pngcairo enhanced truecolor notransparent size 1280,1024\n";
 	# set output filename
 	print GNUPLOTW "\tset output \"$outputfile.png\"\n";
 	$x=1;
@@ -363,7 +381,11 @@ if ($s) {
 }
 
 print GNUPLOTW "\tset tics out\n";
-print GNUPLOTW "\tset title \"FARGO file: $tp\"\n";
+if ($title) {
+	print GNUPLOTW "\tset title \"$title\"\n";
+} else {
+	print GNUPLOTW "\tset title \"FARGO file: $tp\"\n";
+}
 
 if (!$scale) {
 	$scale = 1.0;
@@ -382,7 +404,10 @@ if ($curve) {
 	print GNUPLOTW "\tset pm3d map\n";
 	print GNUPLOTW "\tset autoscale fix\n";
 	print GNUPLOTW "\tset xlabel \"$xlabel\"\n";
-	print GNUPLOTW "\tset ylabel \"radius\"\n";
+	if ($xtics) {
+	print GNUPLOTW "\tset xtics $xtics\n";
+	}
+	print GNUPLOTW "\tset ylabel \"$ylabel\"\n";
 	print GNUPLOTW "\tset cblabel \"$zlabel\"\n";
 
 	# logarithmic scale for cb axis
